@@ -220,7 +220,6 @@ class Trainer(object):
 
         torch.save({
             'state_dict': state_dict,
-            'word2idx': self.word2idx,
         }, model_file)
 
     @staticmethod
