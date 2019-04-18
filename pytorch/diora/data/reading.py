@@ -121,6 +121,8 @@ class BaseTextReader(object):
                         s = s[1:]
                     else:
                         example_id = len(sentences)
+                    if self.lowercase:
+                        s = [w.lower() for w in s]
                     example_ids.append(example_id)
                     sentences.append(s)
 
@@ -141,8 +143,10 @@ class PlainTextReader(BaseTextReader):
         self.delim = delim
 
     def read_line(self, line):
-        example = line.strip().split(self.delim)
-        yield example
+        s = line.strip().split(self.delim)
+        if self.lowercase:
+            s = [w.lower() for w in s]
+        yield s
 
 
 class NLIReader(object):
