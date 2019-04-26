@@ -8,7 +8,6 @@ from train import get_validation_dataset, get_validation_iterator
 from train import build_net
 
 from diora.logging.configuration import get_logger
-from diora.data.preprocessing import prepare_batch
 
 from diora.analysis.cky import ParsePredictor as CKY
 

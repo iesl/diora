@@ -60,21 +60,6 @@ def run_train(options, train_iterator, trainer, validation_iterator):
 
         logger.info('epoch={} seed={}'.format(epoch, seed))
 
-        def skip_ner(entity_labels, ngpus=1):
-            if ngpus > 1:
-                # Each GPU must have at least one label.
-                for rank in range(ngpus):
-                    els = trainer.partition(entity_labels, rank, range(ngpus))
-                    if skip_ner(els):
-                        return True
-                return False
-            else:
-                for lst in entity_labels:
-                    for el in lst:
-                        if el is not None:
-                            return False
-                return True
-
         def myiterator():
             it = train_iterator.get_iterator(random_seed=seed)
 
