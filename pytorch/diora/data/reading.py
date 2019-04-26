@@ -221,6 +221,39 @@ class NLISentenceReader(NLIReader):
             }
 
 
+class ConllReader(object):
+    def __init__(self, lowercase=True, filter_length=0):
+        self.lowercase = lowercase
+        self.filter_length = filter_length if filter_length is not None else 0
+
+    def read(self, filename):
+        sentences = []
+        extra = {}
+        example_ids = []
+        entity_labels = []
+
+        with open(filename) as f:
+            for line in tqdm(f, desc='read'):
+                data = json.loads(line)
+                s = data['sentence']
+
+                # skip long sentences
+                if len(s) > self.filter_length:
+                    continue
+
+                sentences.append(s)
+                example_ids.append(data['example_id'])
+                entity_labels.append(data['entities'])
+
+        extra['example_ids'] = example_ids
+        extra['entity_labels'] = entity_labels
+
+        return {
+            "sentences": sentences,
+            "extra": extra,
+            }
+
+
 class SyntheticReader(object):
     def __init__(self, nexamples=100, embedding_size=10, vocab_size=14, seed=11, minlen=10,
                  maxlen=20, length=None):

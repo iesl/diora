@@ -19,7 +19,7 @@ from diora.utils.checkpoint import save_experiment
 from diora.net.experiment_logger import ExperimentLogger
 
 
-data_types_choices = ('nli', 'txt', 'txt_id', 'synthetic')
+data_types_choices = ('nli', 'conll_jsonl', 'txt', 'txt_id', 'synthetic')
 
 
 def count_params(net):
