@@ -45,7 +45,8 @@ python ...  # (Training/Parsing)
 
 ### Pre-trained Model
 
-Our best performing model (based on unlabeled binary constituency parsing for WSJ) is available for download:
+Our best performing model (based on unlabeled binary constituency parsing for WSJ) is available for download.
+
 http://diora-naacl-2019.s3.amazonaws.com/diora-checkpoints.zip
 
 ### Data
