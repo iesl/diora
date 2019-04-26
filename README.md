@@ -43,6 +43,11 @@ export PYTHONPATH=$(pwd):$PYTHONPATH
 python ...  # (Training/Parsing)
 ```
 
+### Pre-trained Model
+
+Our best performing model (based on unlabeled binary constituency parsing for WSJ) is available for download:
+http://diora-naacl-2019.s3.amazonaws.com/diora-checkpoints.zip
+
 ### Data
 
 To reproduce experiments from our NAACL submission, concatenate the data from [SNLI](https://nlp.stanford.edu/projects/snli/) and [MultiNLI](https://www.nyu.edu/projects/bowman/multinli/).
