@@ -238,7 +238,7 @@ class ConllReader(object):
                 s = data['sentence']
 
                 # skip long sentences
-                if len(s) > self.filter_length:
+                if self.filter_length > 0 and len(s) > self.filter_length:
                     continue
 
                 sentences.append(s)
