@@ -1,7 +1,4 @@
 *.pyc
-
 .DS_Store
 .pytest_cache
-
 log
-misc

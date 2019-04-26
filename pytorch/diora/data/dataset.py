@@ -5,7 +5,7 @@ import numpy as np
 
 from tqdm import tqdm
 
-from diora.data.reading import NLIReader, PlainTextReader
+from diora.data.reading import NLIReader, PlainTextReader, ConllReader
 from diora.data.batch_iterator import BatchIterator
 from diora.data.embeddings import EmbeddingsReader, UNK_TOKEN
 from diora.data.preprocessing import indexify, build_text_vocab
@@ -111,6 +111,8 @@ class ReconstructDataset(object):
     def initialize(self, options, text_path=None, embeddings_path=None, filter_length=0, data_type=None):
         if data_type == 'nli':
             reader = NLIReader.build(lowercase=options.lowercase, filter_length=filter_length)
+        elif data_type == 'conll_jsonl':
+            reader = ConllReader(lowercase=options.lowercase, filter_length=filter_length)
         elif data_type == 'txt':
             reader = PlainTextReader(lowercase=options.lowercase, filter_length=filter_length, include_id=False)
         elif data_type == 'txt_id':
