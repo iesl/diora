@@ -134,6 +134,54 @@ class TreeLSTM(nn.Module):
         return h, c
 
 
+class ComposeMLP(nn.Module):
+    def __init__(self, size, ninput=2, leaf=False):
+        super(ComposeMLP, self).__init__()
+
+        self.size = size
+        self.ninput = ninput
+
+        if leaf:
+            self.V = nn.Parameter(torch.FloatTensor(self.size, self.size))
+        self.W_0 = nn.Parameter(torch.FloatTensor(2 * self.size, self.size))
+        self.W_1 = nn.Parameter(torch.FloatTensor(self.size, self.size))
+        self.B = nn.Parameter(torch.FloatTensor(self.size))
+        self.B_1 = nn.Parameter(torch.FloatTensor(self.size))
+        self.reset_parameters()
+
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
+    @property
+    def is_cuda(self):
+        device = self.device
+        return device.index is not None and device.index >= 0
+
+    def reset_parameters(self):
+        # TODO: Init with diagonal.
+        params = [p for p in self.parameters() if p.requires_grad]
+        for i, param in enumerate(params):
+            param.data.normal_()
+
+    def leaf_transform(self, x):
+        h = torch.tanh(torch.matmul(x, self.V) + self.B)
+        device = torch.cuda.current_device() if self.is_cuda else None
+        c = torch.full(h.shape, 0, dtype=torch.float32, device=device)
+
+        return h, c
+
+    def forward(self, hs, cs, constant=1.0):
+        input_h = torch.cat(hs, 1)
+        h = torch.relu(torch.matmul(input_h, self.W_0) + self.B)
+        h = torch.relu(torch.matmul(h, self.W_1) + self.B_1)
+
+        device = torch.cuda.current_device() if self.is_cuda else None
+        c = torch.full(h.shape, 0, dtype=torch.float32, device=device)
+
+        return h, c
+
+
 # Score Functions
 
 class Bilinear(nn.Module):
@@ -510,3 +558,34 @@ class DioraTreeLSTM(DioraBase):
         self.inside_compose_func = TreeLSTM(self.size, ninput=self.ninput, leaf=True)
         self.outside_compose_func = TreeLSTM(self.size, ninput=2, leaf=False)
 
+
+class DioraMLP(DioraBase):
+
+    def init_parameters(self):
+        self.inside_score_func = Bilinear(self.size)
+        self.outside_score_func = Bilinear(self.size)
+
+        if self.compress:
+            self.root_mat_out = nn.Parameter(torch.FloatTensor(self.size, self.size))
+        else:
+            self.root_vector_out_h = nn.Parameter(torch.FloatTensor(self.size))
+        self.root_vector_out_c = None
+
+        self.inside_compose_func = ComposeMLP(self.size, leaf=True)
+        self.outside_compose_func = ComposeMLP(self.size)
+
+
+class DioraMLPShared(DioraBase):
+
+    def init_parameters(self):
+        self.inside_score_func = Bilinear(self.size)
+        self.outside_score_func = self.inside_score_func
+
+        if self.compress:
+            self.root_mat_out = nn.Parameter(torch.FloatTensor(self.size, self.size))
+        else:
+            self.root_vector_out_h = nn.Parameter(torch.FloatTensor(self.size))
+        self.root_vector_out_c = None
+
+        self.inside_compose_func = ComposeMLP(self.size, leaf=True)
+        self.outside_compose_func = self.inside_compose_func

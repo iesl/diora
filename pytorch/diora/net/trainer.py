@@ -8,6 +8,8 @@ import torch.nn as nn
 import torch.optim as optim
 
 from diora.net.diora import DioraTreeLSTM
+from diora.net.diora import DioraMLP
+from diora.net.diora import DioraMLPShared
 
 from diora.logging.configuration import get_logger
 
@@ -71,6 +73,66 @@ class ReconstructionLoss(nn.Module):
         return loss, ret
 
 
+class ReconstructionSoftmaxLoss(nn.Module):
+    name = 'reconstruct_softmax_loss'
+
+    def __init__(self, embeddings, input_size, size, margin=1, k_neg=3, cuda=False):
+        super(ReconstructionSoftmaxLoss, self).__init__()
+        self.k_neg = k_neg
+        self.margin = margin
+        self.input_size = input_size
+
+        self.embeddings = embeddings
+        self.mat = nn.Parameter(torch.FloatTensor(size, input_size))
+        self._cuda = cuda
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        params = [p for p in self.parameters() if p.requires_grad]
+        for i, param in enumerate(params):
+            param.data.normal_()
+
+    def loss_hook(self, sentences, neg_samples, inputs):
+        pass
+
+    def forward(self, sentences, neg_samples, diora, info):
+        batch_size, length = sentences.shape
+        input_size = self.input_size
+        size = diora.outside_h.shape[-1]
+        k = self.k_neg
+
+        emb_pos = self.embeddings(sentences)
+        emb_neg = self.embeddings(neg_samples.unsqueeze(0))
+
+        # Calculate scores.
+
+        ## The predicted vector.
+        cell = diora.outside_h[:, :length].view(batch_size, length, 1, -1)
+
+        ## The projected samples.
+        proj_pos = torch.matmul(emb_pos, torch.t(self.mat))
+        proj_neg = torch.matmul(emb_neg, torch.t(self.mat))
+
+        ## The score.
+        xp = torch.einsum('abc,abxc->abx', proj_pos, cell)
+        xn = torch.einsum('zec,abxc->abe', proj_neg, cell)
+        score = torch.cat([xp, xn], 2)
+
+        # Calculate loss.
+        lossfn = nn.CrossEntropyLoss()
+        inputs = score.view(batch_size * length, k + 1)
+        device = torch.cuda.current_device() if self._cuda else None
+        outputs = torch.full((inputs.shape[0],), 0, dtype=torch.int64, device=device)
+
+        self.loss_hook(sentences, neg_samples, inputs)
+
+        loss = lossfn(inputs, outputs)
+
+        ret = dict(reconstruction_softmax_loss=loss)
+
+        return loss, ret
+
+
 def get_loss_funcs(options, batch_iterator=None, embedding_layer=None):
     input_dim = embedding_layer.weight.shape[1]
     size = options.hidden_dim
@@ -83,6 +145,9 @@ def get_loss_funcs(options, batch_iterator=None, embedding_layer=None):
     # Reconstruction Loss
     if options.reconstruct_mode == 'margin':
         reconstruction_loss_fn = ReconstructionLoss(embedding_layer,
+            margin=margin, k_neg=k_neg, input_size=input_dim, size=size, cuda=cuda)
+    elif options.reconstruct_mode == 'softmax':
+        reconstruction_loss_fn = ReconstructionSoftmaxLoss(embedding_layer,
             margin=margin, k_neg=k_neg, input_size=input_dim, size=size, cuda=cuda)
     loss_funcs.append(reconstruction_loss_fn)
 
@@ -339,6 +404,10 @@ def build_net(options, embeddings=None, batch_iterator=None, random_seed=None):
     # Diora
     if options.arch == 'treelstm':
         diora = DioraTreeLSTM(size, outside=True, normalize=normalize, compress=False)
+    elif options.arch == 'mlp':
+        diora = DioraMLP(size, outside=True, normalize=normalize, compress=False)
+    elif options.arch == 'mlp-shared':
+        diora = DioraMLPShared(size, outside=True, normalize=normalize, compress=False)
 
     # Loss
     loss_funcs = get_loss_funcs(options, batch_iterator, embedding_layer)
