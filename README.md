@@ -11,6 +11,8 @@ This is the official repo for our NAACL 2019 paper Unsupervised Latent Tree Indu
 }
 ```
 
+The paper is available on arXiv: https://arxiv.org/abs/1904.02142
+
 For questions/concerns/bugs please contact adrozdov at cs.umass.edu.
 
 ## Quick Start
