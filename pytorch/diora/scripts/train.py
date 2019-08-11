@@ -224,7 +224,7 @@ def argument_parser():
     parser.add_argument('--validation_filter_length', default=0, type=int)
 
     # Model.
-    parser.add_argument('--arch', default='treelstm', choices=('treelstm',))
+    parser.add_argument('--arch', default='treelstm', choices=('treelstm', 'mlp', 'mlp-shared'))
     parser.add_argument('--hidden_dim', default=10, type=int)
     parser.add_argument('--normalize', default='unit', choices=('none', 'unit'))
     parser.add_argument('--compress', action='store_true',
@@ -232,7 +232,7 @@ def argument_parser():
                              'Otherwise, learn outside root as bias.')
 
     # Model (Objective).
-    parser.add_argument('--reconstruct_mode', default='margin', choices=('margin',))
+    parser.add_argument('--reconstruct_mode', default='margin', choices=('margin', 'softmax'))
 
     # Model (Embeddings).
     parser.add_argument('--emb', default='w2v', choices=('w2v', 'elmo', 'both'))

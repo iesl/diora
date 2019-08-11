@@ -472,7 +472,11 @@ class DioraBase(nn.Module):
             h = torch.matmul(self.inside_h[:, -1:], self.root_mat_out)
         else:
             h = self.root_vector_out_h.view(1, 1, D).expand(B, 1, D)
-        c = self.root_vector_out_c.view(1, 1, D).expand(B, 1, D)
+        if self.root_vector_out_c is None:
+            device = torch.cuda.current_device() if self.is_cuda else None
+            c = torch.full(h.shape, 0, dtype=torch.float32, device=device)
+        else:
+            c = self.root_vector_out_c.view(1, 1, D).expand(B, 1, D)
 
         h = normalize_func(h)
         c = normalize_func(c)

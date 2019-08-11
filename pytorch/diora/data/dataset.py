@@ -146,7 +146,7 @@ def make_batch_iterator(options, dset, shuffle=True, include_partial=False, filt
     vocab_size = len(word2idx)
     
     negative_sampler = None
-    if options.reconstruct_mode == 'margin':
+    if options.reconstruct_mode in ('margin', 'softmax'):
         freq_dist = calculate_freq_dist(sentences, vocab_size)
         negative_sampler = NegativeSampler(freq_dist=freq_dist, dist_power=options.freq_dist_power)
     vocab_lst = [w for w, _ in sorted(word2idx.items(), key=lambda x: x[1])]
