@@ -188,7 +188,7 @@ def argument_parser():
     parser.add_argument("--local_rank", default=None, type=int) # for distributed-data-parallel
 
     # Logging.
-    parser.add_argument('--default_experiment_directory', default=os.path.join(package_path(), 'log'), type=str)
+    parser.add_argument('--default_experiment_directory', default=os.path.join(package_path(), '..', 'log'), type=str)
     parser.add_argument('--experiment_name', default=None, type=str)
     parser.add_argument('--experiment_path', default=None, type=str)
     parser.add_argument('--log_every_batch', default=10, type=int)
@@ -297,8 +297,7 @@ def parse_args(parser):
         options.uuid = str(uuid.uuid4())
 
     if not options.experiment_name:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%s")
-        options.experiment_name = '{}-{}'.format(options.train_data_type, timestamp)
+        options.experiment_name = '{}'.format(options.uuid[:8])
 
     if not options.experiment_path:
         options.experiment_path = os.path.join(options.default_experiment_directory, options.experiment_name)
