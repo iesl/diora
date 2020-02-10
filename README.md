@@ -17,24 +17,20 @@ For questions/concerns/bugs please contact adrozdov at cs.umass.edu.
 
 ## Quick Start
 
+Install dependencies (using Conda as a virtual environment).
+
 ```
-# Install Dependencies (using Conda as a virtual environment)
-conda create -n diora python=3.6
+conda create -n diora python=3.7
 source activate diora
-
-## DIORA uses Pytorch (>= 1.0.0).
-## Note: If you need GPU-support, make sure that you follow directions on pytorch.org
-conda install pytorch torchvision -c pytorch
-
-## AllenNLP is for context-insensitive ELMo embeddings.
-pip install allennlp
-
-## There are a few other libraries being used.
-pip install tqdm
+pip install -r requirements.txt
 
 ## Deactivate Conda when not being used.
 source deactivate
+```
 
+Running DIORA.
+
+```
 # Clone Repo
 cd ~/code && git clone git@github.com:iesl/diora.git
 
