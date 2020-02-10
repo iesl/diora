@@ -265,6 +265,9 @@ def argument_parser():
     parser.add_argument('--finetune', action='store_true')
     parser.add_argument('--finetune_after', default=0, type=int)
 
+    # Parsing.
+    parser.add_argument('--postprocess', action='store_true')
+
     # Optimization.
     parser.add_argument('--lr', default=4e-3, type=float)
 

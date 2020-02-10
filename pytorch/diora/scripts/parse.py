@@ -12,6 +12,68 @@ from diora.logging.configuration import get_logger
 from diora.analysis.cky import ParsePredictor as CKY
 
 
+punctuation_words = set([x.lower() for x in ['.', ',', ':', '-LRB-', '-RRB-', '\'\'',
+    '``', '--', ';', '-', '?', '!', '...', '-LCB-', '-RCB-']])
+
+
+def remove_using_flat_mask(tr, mask):
+    kept, removed = [], []
+    def func(tr, pos=0):
+        if not isinstance(tr, (list, tuple)):
+            if mask[pos] == False:
+                removed.append(tr)
+                return None, 1
+            kept.append(tr)
+            return tr, 1
+
+        size = 0
+        node = []
+
+        for subtree in tr:
+            x, xsize = func(subtree, pos=pos + size)
+            if x is not None:
+                node.append(x)
+            size += xsize
+
+        if len(node) == 1:
+            node = node[0]
+        elif len(node) == 0:
+            return None, size
+        return node, size
+    new_tree, _ = func(tr)
+    return new_tree, kept, removed
+
+
+def flatten_tree(tr):
+    def func(tr):
+        if not isinstance(tr, (list, tuple)):
+            return [tr]
+        result = []
+        for x in tr:
+            result += func(x)
+        return result
+    return func(tr)
+
+
+def postprocess(tr, tokens=None):
+    if tokens is None:
+        tokens = flatten_tree(tr)
+
+    # Don't remove the last token. It's not punctuation.
+    if tokens[-1].lower() not in punctuation_words:
+        return tr
+
+    mask = [True] * (len(tokens) - 1) + [False]
+    tr, kept, removed = remove_using_flat_mask(tr, mask)
+    assert len(kept) == len(tokens) - 1, 'Incorrect tokens left. Original = {}, Output = {}, Kept = {}'.format(
+        binary_tree, tr, kept)
+    assert len(kept) > 0, 'No tokens left. Original = {}'.format(tokens)
+    assert len(removed) == 1
+    tr = (tr, tokens[-1])
+
+    return tr
+
+
 def override_init_with_batch(var):
     init_with_batch = var.init_with_batch
 
@@ -123,6 +185,8 @@ def run(options):
                 example_id = batch_map['example_ids'][ii]
                 s = [idx2word[idx] for idx in sentences[ii].tolist()]
                 tr = replace_leaves(tr, s)
+                if options.postprocess:
+                    tr = postprocess(tr, s)
                 o = dict(example_id=example_id, tree=tr)
 
                 print(json.dumps(o))

@@ -28,6 +28,21 @@ pip install -r requirements.txt
 source deactivate
 ```
 
+Download the pre-trained model.
+
+```
+mkdir -p ~/Downloads
+cd ~/Downloads
+wget http://diora-naacl-2019.s3.amazonaws.com/diora-checkpoints.zip
+unzip diora-checkpoints.zip
+```
+
+(Optional) Download training data: To reproduce experiments from our NAACL submission, concatenate the data from [SNLI](https://nlp.stanford.edu/projects/snli/) and [MultiNLI](https://www.nyu.edu/projects/bowman/multinli/).
+
+```
+cat ~/data/snli_1.0/snli_1.0_train.jsonl ~/data/multinli_1.0/multinli_1.0_train.jsonl > ~/data/allnli.jsonl
+```
+
 Running DIORA.
 
 ```
@@ -38,47 +53,24 @@ cd ~/code && git clone git@github.com:iesl/diora.git
 source activate diora
 cd ~/code/diora/pytorch
 export PYTHONPATH=$(pwd):$PYTHONPATH
-python ...  # (Training/Parsing)
-```
 
-### Pre-trained Model
+## Create a directory to cache elmo embeddings.
+mkdir -p ~/data/elmo
 
-Our best performing model (based on unlabeled binary constituency parsing for WSJ) is available for download.
-
-http://diora-naacl-2019.s3.amazonaws.com/diora-checkpoints.zip
-
-### Data
-
-To reproduce experiments from our NAACL submission, concatenate the data from [SNLI](https://nlp.stanford.edu/projects/snli/) and [MultiNLI](https://www.nyu.edu/projects/bowman/multinli/).
-
-```
-cat ~/data/snli_1.0/snli_1.0_train.jsonl ~/data/multinli_1.0/multinli_1.0_train.jsonl > ~/data/allnli.jsonl
-```
-
-### Training
-
-A simple setting to get started:
-
-```
-python diora/scripts/train.py \
+## Parse some text.
+python diora/scripts/parse.py \
     --batch_size 10 \
-    --data_type nli \
-    --emb w2v \
-    --embeddings_path ~/data/glove/glove.840B.300d.txt \
-    --hidden_dim 50 \
-    --log_every_batch 100 \
-    --save_after 1000 \
-    --train_filter_length 20 \
-    --train_path ~/data/snli_1.0/snli_1.0_train.jsonl \
-    --cuda
-```
+    --data_type txt_id \
+    --elmo_cache_dir ~/data/elmo \
+    --load_model_path ~/Downloads/softmax-mlp-shared/model.pt \
+    --model_flags ~/Downloads/softmax-mlp-shared/flags.json \
+    --validation_path ./sample.txt \
+    --validation_filter_length 10
 
-To reproduce the TreeLSTM experiments from our NAACL submission:
-
-```
+## Train from scratch.
 python -m torch.distributed.launch --nproc_per_node=4 diora/scripts/train.py \
-    --arch treelstm \
-    --batch_size 128 \
+    --arch mlp-shared \
+    --batch_size 32 \
     --data_type nli \
     --elmo_cache_dir ~/data/elmo \
     --emb elmo \
@@ -87,25 +79,11 @@ python -m torch.distributed.launch --nproc_per_node=4 diora/scripts/train.py \
     --log_every_batch 100 \
     --lr 2e-3 \
     --normalize unit \
-    --reconstruct_mode margin \
+    --reconstruct_mode softmax \
     --save_after 1000 \
     --train_filter_length 20 \
     --train_path ~/data/allnli.jsonl \
     --cuda --multigpu
-```
-
-### Parsing
-
-```
-python diora/scripts/parse.py \
-    --batch_size 10 \
-    --data_type txt_id \
-    --elmo_cache_dir ~/data/elmo \
-    --embeddings_path ~/data/glove/glove.840B.300d.txt \
-    --load_model_path ~/checkpoints/diora/experiment-001/model.step_300000.pt \
-    --model_flags ~/checkpoints/diora/experiment-001/flags.json \
-    --validation_path ./sample.txt \
-    --validation_filter_length 10
 ```
 
 ## Multi-GPU Training
