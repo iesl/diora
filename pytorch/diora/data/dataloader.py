@@ -77,8 +77,6 @@ class FixedLengthBatchSampler(Sampler):
         for length, v in state.items():
             order += [length] * v['nbatches']
 
-        self.logger.info('# of batches = {}'.format(len(order)))
-
         ## Optionally, add partial batches.
         if self.include_partial:
             for length, v in state.items():

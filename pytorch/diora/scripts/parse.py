@@ -1,7 +1,11 @@
+import os
+import collections
 import json
 import types
 
 import torch
+
+from tqdm import tqdm
 
 from train import argument_parser, parse_args, configure
 from train import get_validation_dataset, get_validation_iterator
@@ -156,10 +160,15 @@ def run(options):
 
     batches = validation_iterator.get_iterator(random_seed=options.seed)
 
+    output_path = os.path.abspath(os.path.join(options.experiment_path, 'parse.jsonl'))
+
     logger.info('Beginning to parse.')
+    logger.info('Writing output to = {}'.format(output_path))
+
+    f = open(output_path, 'w')
 
     with torch.no_grad():
-        for i, batch_map in enumerate(batches):
+        for i, batch_map in tqdm(enumerate(batches)):
             sentences = batch_map['sentences']
             batch_size = sentences.shape[0]
             length = sentences.shape[1]
@@ -171,10 +180,10 @@ def run(options):
                     tokens = sentences[i].tolist()
                     words = [idx2word[idx] for idx in tokens]
                     if length == 2:
-                        o = dict(example_id=example_id, tree=(words[0], words[1]))
+                        o = collections.OrderedDict(example_id=example_id, tree=(words[0], words[1]))
                     elif length == 1:
-                        o = dict(example_id=example_id, tree=words[0])
-                    print(json.dumps(o))
+                        o = collections.OrderedDict(example_id=example_id, tree=words[0])
+                    f.write(json.dumps(o) + '\n')
                 continue
 
             _ = trainer.step(batch_map, train=False, compute_loss=False)
@@ -187,9 +196,11 @@ def run(options):
                 tr = replace_leaves(tr, s)
                 if options.postprocess:
                     tr = postprocess(tr, s)
-                o = dict(example_id=example_id, tree=tr)
+                o = collections.OrderedDict(example_id=example_id, tree=tr)
 
-                print(json.dumps(o))
+                f.write(json.dumps(o) + '\n')
+
+    f.close()
 
 
 if __name__ == '__main__':
