@@ -67,6 +67,26 @@ python diora/scripts/parse.py \
     --validation_path ./sample.txt \
     --validation_filter_length 10
 
+## Extract vectors using latent trees,
+python diora/scripts/phrase_embed_simple.py --parse_mode latent \
+    --batch_size 10 \
+    --data_type txt_id \
+    --elmo_cache_dir ~/data/elmo \
+    --load_model_path ~/Downloads/softmax-mlp-shared/model.pt \
+    --model_flags ~/Downloads/softmax-mlp-shared/flags.json \
+    --validation_path ./sample.txt \
+    --validation_filter_length 10
+
+## or specify the trees to use.
+python diora/scripts/phrase_embed_simple.py --parse_mode given \
+    --batch_size 10 \
+    --data_type jsonl \
+    --elmo_cache_dir ~/data/elmo \
+    --load_model_path ~/Downloads/softmax-mlp-shared/model.pt \
+    --model_flags ~/Downloads/softmax-mlp-shared/flags.json \
+    --validation_path ./sample.jsonl \
+    --validation_filter_length 10
+
 ## Train from scratch.
 python -m torch.distributed.launch --nproc_per_node=4 diora/scripts/train.py \
     --arch mlp-shared \
@@ -201,12 +221,11 @@ python diora/scripts/parse.py \
 
 ## Logging
 
-Various logs, checkpoints, and useful files are saved to a "log" directory when running DIORA. By default, this directory will be at `/path/to/diora/pytorch/log/${data_type}-${date}-${timestamp}`. For example, this might be the log directory: `~/code/diora/pytorch/txt_id-20181117-1542478880`. You can specify your own directory using the `--experiment_path` flag.
+Various logs, checkpoints, and useful files are saved to a "log" directory when running DIORA. By default, this directory will be at `/path/to/diora/pytorch/log/${uuid}`. For example, this might be the log directory: `~/code/diora/pytorch/3d10566e`. You can specify your own directory using the `--experiment_path` flag.
 
 Some files stored in the log directory are:
 
 ```
-- experiment.log  # The output of the logger.
 - flags.json  # All the arguments the experiment was run with as a JSON file.
 - model_periodic.pt  # The latest model checkpoint, saved every N batches.
 - model.step_X.pt  # Another checkpoint is saved every X batches.
