@@ -155,14 +155,14 @@ def run(options):
     ## Eval mode.
     trainer.net.eval()
 
-    ## Topk predictor.
+    ## Parse predictor.
     parse_predictor = CKY(net=diora, word2idx=word2idx)
 
     batches = validation_iterator.get_iterator(random_seed=options.seed)
 
     output_path = os.path.abspath(os.path.join(options.experiment_path, 'parse.jsonl'))
 
-    logger.info('Beginning to parse.')
+    logger.info('Beginning.')
     logger.info('Writing output to = {}'.format(output_path))
 
     f = open(output_path, 'w')
@@ -173,17 +173,8 @@ def run(options):
             batch_size = sentences.shape[0]
             length = sentences.shape[1]
 
-            # Rather than skipping, just log the trees (they are trivially easy to find).
+            # Skip very short sentences.
             if length <= 2:
-                for i in range(batch_size):
-                    example_id = batch_map['example_ids'][i]
-                    tokens = sentences[i].tolist()
-                    words = [idx2word[idx] for idx in tokens]
-                    if length == 2:
-                        o = collections.OrderedDict(example_id=example_id, tree=(words[0], words[1]))
-                    elif length == 1:
-                        o = collections.OrderedDict(example_id=example_id, tree=words[0])
-                    f.write(json.dumps(o) + '\n')
                 continue
 
             _ = trainer.step(batch_map, train=False, compute_loss=False)

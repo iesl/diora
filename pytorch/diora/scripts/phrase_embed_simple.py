@@ -164,7 +164,7 @@ class TreeHelper(object):
         length = sentences.shape[1]
 
         if options.parse_mode == 'all-spans':
-            pass
+            trees, spans = None, None
         elif options.parse_mode == 'latent':
             trees = self.parse_predictor.parse_batch(batch_map)
             spans = []
@@ -176,7 +176,7 @@ class TreeHelper(object):
                 spans.append(tree_to_spans(tr))
         elif options.parse_mode == 'given':
             pass
-        return tr, spans
+        return trees, spans
 
 
 class CSVHelper(object):
@@ -236,32 +236,50 @@ def run(options):
 
             _ = trainer.step(batch_map, train=False, compute_loss=False)
 
-            trees, spans = tree_helper.get_trees_for_batch(batch_map, options)
+            if options.parse_mode == 'all-spans':
+                for ii in range(batch_size):
+                    example_id = batch_map['example_ids'][ii]
+                    for level in range(length):
+                        size = level + 1
+                        for pos in range(length - level):
+                            # metadata
+                            csv_helper.write_row(f_csv,
+                                collections.OrderedDict(
+                                    example_id=example_id,
+                                    position=str(pos),
+                                    size=str(size)
+                            ))
+                inside_vectors = diora.inside_h.view(-1, options.hidden_dim)
+                outside_vectors = diora.outside_h.view(-1, options.hidden_dim)
 
-            batch_index = []
-            cell_index = []
-            offset_cache = diora.index.get_offset(length)
+            else:
+                trees, spans = tree_helper.get_trees_for_batch(batch_map, options)
 
-            for ii, sp_lst in enumerate(spans):
-                example_id = batch_map['example_ids'][ii]
-                for pos, size in sp_lst:
-                    # metadata
-                    csv_helper.write_row(f_csv,
-                        collections.OrderedDict(
-                            example_id=example_id,
-                            position=str(pos),
-                            size=str(size)
-                    ))
-                    # for vectors
-                    level = size - 1
-                    cell = offset_cache[level] + pos
-                    batch_index.append(ii)
-                    cell_index.append(cell)
+                batch_index = []
+                cell_index = []
+                offset_cache = diora.index.get_offset(length)
 
-            inside_vectors = diora.inside_h[batch_index, cell_index]
-            assert inside_vectors.shape == (len(batch_index), options.hidden_dim)
-            outside_vectors = diora.outside_h[batch_index, cell_index]
-            assert outside_vectors.shape == (len(batch_index), options.hidden_dim)
+                for ii, sp_lst in enumerate(spans):
+                    example_id = batch_map['example_ids'][ii]
+                    for pos, size in sp_lst:
+                        # metadata
+                        csv_helper.write_row(f_csv,
+                            collections.OrderedDict(
+                                example_id=example_id,
+                                position=str(pos),
+                                size=str(size)
+                        ))
+                        # for vectors
+                        level = size - 1
+                        cell = offset_cache[level] + pos
+                        batch_index.append(ii)
+                        cell_index.append(cell)
+
+                inside_vectors = diora.inside_h[batch_index, cell_index]
+                assert inside_vectors.shape == (len(batch_index), options.hidden_dim)
+                outside_vectors = diora.outside_h[batch_index, cell_index]
+                assert outside_vectors.shape == (len(batch_index), options.hidden_dim)
+
             vectors = np.concatenate([inside_vectors, outside_vectors], axis=1)
             np.savetxt(f_vec, vectors)
 
