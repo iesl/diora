@@ -17,6 +17,17 @@ def pick(lst, k):
     return [d[k] for d in lst]
 
 
+def flatten_tree(tr):
+    def func(tr):
+        if not isinstance(tr, (list, tuple)):
+            return [tr]
+        result = []
+        for x in tr:
+            result += func(x)
+        return result
+    return func(tr)
+
+
 def convert_binary_bracketing(parse, lowercase=True):
     transitions = []
     tokens = []
@@ -147,6 +158,47 @@ class PlainTextReader(BaseTextReader):
         if self.lowercase:
             s = [w.lower() for w in s]
         yield s
+
+
+class JSONLReader(object):
+    def __init__(self, lowercase=True, filter_length=0, delim=' ', include_id=False):
+        self.lowercase = lowercase
+        self.filter_length = filter_length if filter_length is not None else 0
+
+    def read(self, filename):
+        sentences = []
+
+        # extra
+        extra = dict()
+        example_ids = []
+        trees = []
+
+        # read
+        with open(filename) as f:
+            for line in tqdm(f, desc='read'):
+                ex = json.loads(line)
+                example_id = ex['example_id']
+                tr = ex['tree']
+                if not 'sentence' in ex:
+                    ex['sentence'] = flatten_tree(tr)
+                s = ex['sentence']
+
+                if self.filter_length > 0 and len(s) > self.filter_length:
+                    continue
+                if self.lowercase:
+                    s = [w.lower() for w in s]
+
+                example_ids.append(example_id)
+                sentences.append(s)
+                trees.append(tr)
+
+        extra['example_ids'] = example_ids
+        extra['trees'] = trees
+
+        return {
+            "sentences": sentences,
+            "extra": extra
+            }
 
 
 class NLIReader(object):

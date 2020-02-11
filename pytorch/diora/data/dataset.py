@@ -5,7 +5,7 @@ import numpy as np
 
 from tqdm import tqdm
 
-from diora.data.reading import NLIReader, PlainTextReader, ConllReader
+from diora.data.reading import NLIReader, PlainTextReader, ConllReader, JSONLReader
 from diora.data.batch_iterator import BatchIterator
 from diora.data.embeddings import EmbeddingsReader, UNK_TOKEN
 from diora.data.preprocessing import indexify, build_text_vocab
@@ -117,6 +117,8 @@ class ReconstructDataset(object):
             reader = PlainTextReader(lowercase=options.lowercase, filter_length=filter_length, include_id=False)
         elif data_type == 'txt_id':
             reader = PlainTextReader(lowercase=options.lowercase, filter_length=filter_length, include_id=True)
+        elif data_type == 'jsonl':
+            reader = JSONLReader(lowercase=options.lowercase, filter_length=filter_length)
         elif data_type == 'synthetic':
             reader = SyntheticReader(nexamples=options.synthetic_nexamples,
                 embedding_size=options.synthetic_embeddingsize,
@@ -144,7 +146,7 @@ def make_batch_iterator(options, dset, shuffle=True, include_partial=False, filt
         ngpus = torch.cuda.device_count()
 
     vocab_size = len(word2idx)
-    
+
     negative_sampler = None
     if options.reconstruct_mode in ('margin', 'softmax'):
         freq_dist = calculate_freq_dist(sentences, vocab_size)

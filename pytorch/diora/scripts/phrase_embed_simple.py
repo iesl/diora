@@ -163,19 +163,23 @@ class TreeHelper(object):
         batch_size = sentences.shape[0]
         length = sentences.shape[1]
 
+        # trees
         if options.parse_mode == 'all-spans':
-            trees, spans = None, None
+            raise Exception('Does not support this mode.')
         elif options.parse_mode == 'latent':
             trees = self.parse_predictor.parse_batch(batch_map)
-            spans = []
-            for ii, tr in enumerate(trees):
-                s = [self.idx2word[idx] for idx in sentences[ii].tolist()]
-                tr = replace_leaves(tr, s)
-                if options.postprocess:
-                    tr = postprocess(tr, s)
-                spans.append(tree_to_spans(tr))
         elif options.parse_mode == 'given':
-            pass
+            trees = batch_map['trees']
+
+        # spans
+        spans = []
+        for ii, tr in enumerate(trees):
+            s = [self.idx2word[idx] for idx in sentences[ii].tolist()]
+            tr = replace_leaves(tr, s)
+            if options.postprocess:
+                tr = postprocess(tr, s)
+            spans.append(tree_to_spans(tr))
+
         return trees, spans
 
 
