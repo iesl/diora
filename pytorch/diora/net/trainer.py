@@ -386,7 +386,7 @@ def build_net(options, embeddings=None, batch_iterator=None, random_seed=None):
     k_neg = options.k_neg
     margin = options.margin
     normalize = options.normalize
-    input_dim = embeddings.shape[1]
+    input_dim = options.emb_default_size if embeddings is None else embeddings.shape[1]
     cuda = options.cuda
     rank = options.local_rank
     ngpus = 1
@@ -398,8 +398,12 @@ def build_net(options, embeddings=None, batch_iterator=None, random_seed=None):
         torch.distributed.init_process_group(backend='nccl', init_method='env://')
 
     # Embed
-    embedding_layer = nn.Embedding.from_pretrained(torch.from_numpy(embeddings), freeze=True)
-    embed = Embed(embedding_layer, input_size=input_dim, size=size)
+    if embeddings is not None:
+        embedding_layer = nn.Embedding.from_pretrained(torch.from_numpy(embeddings), freeze=True)
+        embed = Embed(embedding_layer, options.emb_default_size, options.hidden_dim )
+    else:
+        embedding_layer = nn.Embedding(num_embeddings=options.voc_size, embedding_dim=input_dim)
+    embed = Embed(embedding_layer, input_dim, size )
 
     # Diora
     if options.arch == 'treelstm':

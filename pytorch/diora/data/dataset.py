@@ -57,7 +57,12 @@ class ConsolidateDatasets(object):
     def run(self):
         word2idx_lst = [x['word2idx'] for x in self.datasets]
         master_word2idx, inverse_mapping_lst = self.consolidate_word2idx(word2idx_lst)
-        embeddings = self.remap_embeddings(self.datasets, inverse_mapping_lst, master_word2idx)
+
+        if self.datasets[0].get('embeddings', None) is not None:
+            embeddings = self.remap_embeddings(self.datasets, inverse_mapping_lst, master_word2idx)
+        else:
+            embeddings = None
+
         for dset, inverse_mapping in zip(self.datasets, inverse_mapping_lst):
             dset['sentences'] = self.reindex(dset['sentences'], inverse_mapping)
             dset['word2idx'] = master_word2idx
@@ -88,6 +93,9 @@ class ReaderManager(object):
             logger.info('Using embeddings from metadata.')
             embeddings = metadata['embeddings']
             del metadata['embeddings']
+        elif options.emb == 'none' or options.emb is None:
+            logger.info('No pre-trained embeddings.')
+            embeddings=None
         else:
             logger.info('Reading embeddings.')
             embeddings, word2idx = EmbeddingsReader().get_embeddings(

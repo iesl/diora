@@ -138,6 +138,10 @@ def run(options):
 
     idx2word = {v: k for k, v in word2idx.items()}
 
+    #If there are no pre-trained embeddings:
+    if embeddings is None:
+        options.voc_size = len(validation_dataset['word2idx'])
+
     logger.info('Initializing model.')
     trainer = build_net(options, embeddings, validation_iterator)
 

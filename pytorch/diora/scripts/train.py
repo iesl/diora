@@ -151,6 +151,10 @@ def run(options):
     validation_iterator = get_validation_iterator(options, validation_dataset)
     embeddings = train_dataset['embeddings']
 
+    #If there are no pre-trained embeddings:
+    if embeddings is None:
+        options.voc_size = len(train_dataset['word2idx'])
+
     logger.info('Initializing model.')
     trainer = build_net(options, embeddings, validation_iterator)
     logger.info('Model:')
@@ -206,7 +210,7 @@ def argument_parser():
     parser.add_argument('--validation_data_type', default=None, choices=data_types_choices)
     parser.add_argument('--train_path', default=os.path.expanduser('~/data/snli_1.0/snli_1.0_train.jsonl'), type=str)
     parser.add_argument('--validation_path', default=os.path.expanduser('~/data/snli_1.0/snli_1.0_dev.jsonl'), type=str)
-    parser.add_argument('--embeddings_path', default=os.path.expanduser('~/data/glove/glove.6B.300d.txt'), type=str)
+    parser.add_argument('--embeddings_path', default=None, type=str)
 
     # Data (synthetic).
     parser.add_argument('--synthetic-nexamples', default=1000, type=int)
@@ -235,7 +239,8 @@ def argument_parser():
     parser.add_argument('--reconstruct_mode', default='margin', choices=('margin', 'softmax'))
 
     # Model (Embeddings).
-    parser.add_argument('--emb', default='w2v', choices=('w2v', 'elmo', 'both'))
+    parser.add_argument('--emb', default='none', choices=('w2v', 'elmo', 'both', 'none'))
+    parser.add_argument('--emb_default_size', default='10', type=int, help='Embedding size. Only applies when no pre-trained embeddings are used (i.e. --emb none).')
 
     # Model (Negative Sampler).
     parser.add_argument('--margin', default=1, type=float)
