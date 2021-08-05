@@ -400,7 +400,6 @@ def build_net(options, embeddings=None, batch_iterator=None, random_seed=None):
     # Embed
     if embeddings is not None:
         embedding_layer = nn.Embedding.from_pretrained(torch.from_numpy(embeddings), freeze=True)
-        embed = Embed(embedding_layer, options.emb_default_size, options.hidden_dim )
     else:
         embedding_layer = nn.Embedding(num_embeddings=options.voc_size, embedding_dim=input_dim)
     embed = Embed(embedding_layer, input_dim, size )
