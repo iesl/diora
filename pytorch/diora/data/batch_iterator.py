@@ -1,7 +1,11 @@
 from diora.data.dataloader import FixedLengthBatchSampler, SimpleDataset
 from diora.blocks.negative_sampler import choose_negative_samples
 
-from allennlp.modules.elmo import Elmo, batch_to_ids
+try:
+    from allennlp.modules.elmo import Elmo, batch_to_ids
+except ImportError:
+    pass
+
 
 import torch
 import numpy as np

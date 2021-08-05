@@ -1,17 +1,17 @@
 Diora fork: 27/07/2021
 
 Changes:
-- embeddings.py:
--- commented code that used Elmo as it is not supported anymore
-#-- added option for none in get_embeddings
-- dataset.py:
-added option to bypass embeddings in run
 - train.py:
 -- added argument --emb_default_size
 -- changed --embeddings_path argument to take None as default
 -- changed --emb argument to have also a (default) option of 'none', for the case when no pre-trained embeddings are used
+- dataset.py:
+added option to bypass embeddings in run
+- embeddings.py:
+-- made the allenlp elmo dependency local (as the library is not supported in later versions)
+- batch_iterator.py:
+-- try-catch around import of allenlp elmo library (as is not supported in later versions)
 - trainer.py
 -- create embeddings from vocabulary when no pre-trained embeddings are provided
 - parse.py
 -- create embeddings from vocabulary when no pre-trained embeddings are provided
-

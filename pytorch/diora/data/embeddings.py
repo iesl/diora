@@ -5,7 +5,6 @@ from collections import OrderedDict
 from diora.logging.configuration import get_logger
 
 import numpy as np
-#from allennlp.commands.elmo import ElmoEmbedder
 from tqdm import tqdm
 
 
@@ -160,49 +159,50 @@ def load_elmo_cache(path):
     return np.load(path)
 
 
-#def context_insensitive_elmo(weights_path, options_path, word2idx, cuda=False, cache_dir=None):
-#    logger = get_logger()
-#
-#    vocab = [w for w, i in sorted(word2idx.items(), key=lambda x: x[1])]
-#
-#    validate_word2idx(word2idx)
-#
-#    if cache_dir is not None:
-#        key = hash_vocab(vocab)
-#        cache_path = os.path.join(cache_dir, 'elmo_{}.npy'.format(key))
-#
-#        if os.path.exists(cache_path):
-#            logger.info('Loading cached elmo vectors: {}'.format(cache_path))
-#            return load_elmo_cache(cache_path)
-#
-#    if cuda:
-#        device = 0
-#    else:
-#        device = -1
-#
-#    batch_size = 256
-#    nbatches = len(vocab) // batch_size + 1
-#
-#    logger.info('Begin caching vectors. nbatches={} device={}'.format(nbatches, device))
-#    logger.info('Initialize ELMo Model.')
-#
-#    # TODO: Does not support padding.
-#    elmo = ElmoEmbedder(options_file=options_path, weight_file=weights_path, cuda_device=device)
-#    vec_lst = []
-#    for i in tqdm(range(nbatches), desc='elmo'):
-#        start = i * batch_size
-#        batch = vocab[start:start+batch_size]
-#        if len(batch) == 0:
-#            continue
-#        vec = elmo.embed_sentence(batch)
-#        vec_lst.append(vec)
-#
-#    vectors = np.concatenate([x[0] for x in vec_lst], axis=0)
-#
-#    if cache_dir is not None:
-#        logger.info('Saving cached elmo vectors: {}'.format(cache_path))
-#        save_elmo_cache(cache_path, vectors)
-#
-#    return vectors
+def context_insensitive_elmo(weights_path, options_path, word2idx, cuda=False, cache_dir=None):
+    from allennlp.commands.elmo import ElmoEmbedder
+    logger = get_logger()
+
+    vocab = [w for w, i in sorted(word2idx.items(), key=lambda x: x[1])]
+
+    validate_word2idx(word2idx)
+
+    if cache_dir is not None:
+        key = hash_vocab(vocab)
+        cache_path = os.path.join(cache_dir, 'elmo_{}.npy'.format(key))
+
+        if os.path.exists(cache_path):
+            logger.info('Loading cached elmo vectors: {}'.format(cache_path))
+            return load_elmo_cache(cache_path)
+
+    if cuda:
+        device = 0
+    else:
+        device = -1
+
+    batch_size = 256
+    nbatches = len(vocab) // batch_size + 1
+
+    logger.info('Begin caching vectors. nbatches={} device={}'.format(nbatches, device))
+    logger.info('Initialize ELMo Model.')
+
+    # TODO: Does not support padding.
+    elmo = ElmoEmbedder(options_file=options_path, weight_file=weights_path, cuda_device=device)
+    vec_lst = []
+    for i in tqdm(range(nbatches), desc='elmo'):
+        start = i * batch_size
+        batch = vocab[start:start+batch_size]
+        if len(batch) == 0:
+            continue
+        vec = elmo.embed_sentence(batch)
+        vec_lst.append(vec)
+
+    vectors = np.concatenate([x[0] for x in vec_lst], axis=0)
+
+    if cache_dir is not None:
+        logger.info('Saving cached elmo vectors: {}'.format(cache_path))
+        save_elmo_cache(cache_path, vectors)
+
+    return vectors
 
 
