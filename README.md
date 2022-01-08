@@ -152,6 +152,51 @@ python pytorch/diora/scripts/evalb.py \
     --gold ./data/ptb/ptb-test.txt
 ```
 
+Using the `mlp-softmax` checkpoint to parse the PTB test set should give the following output and results:
+
+```
+$ python pytorch/diora/scripts/evalb.py \
+    --evalb ./EVALB \
+    --evalb_config ./EVALB/diora.prm \
+    --out ./log/eval-ptb \
+    --pred ./log/eval-ptb/parse.jsonl \
+    --gold ./data/ptb/ptb-test.txt
+
+Running: ./EVALB/evalb -p ./EVALB/diora.prm ./log/eval-ptb/gold.txt ./log/eval-ptb/pred.txt > ./log/eval-ptb/evalb.out
+
+Results are ready at: ./log/eval-ptb/evalb.out
+
+==== PREVIEW OF RESULTS (./log/eval-ptb/evalb.out) ====
+
+-- All --
+Number of sentence        =   2416
+Number of Error sentence  =      0
+Number of Skip  sentence  =      0
+Number of Valid sentence  =   2416
+Bracketing Recall         =  57.78
+Bracketing Precision      =  44.28
+Bracketing FMeasure       =  50.14
+Complete match            =   0.46
+Average crossing          =   5.71
+No crossing               =  10.10
+2 or less crossing        =  29.26
+Tagging accuracy          =   9.76
+
+-- len<=40 --
+Number of sentence        =   2338
+Number of Error sentence  =      0
+Number of Skip  sentence  =      0
+Number of Valid sentence  =   2338
+Bracketing Recall         =  57.96
+Bracketing Precision      =  44.57
+Bracketing FMeasure       =  50.39
+Complete match            =   0.47
+Average crossing          =   5.39
+No crossing               =  10.44
+2 or less crossing        =  30.24
+Tagging accuracy          =   9.79
+```
+
 Notes:
 
 - Set `--validation_filter_length -1` to read all of the data.
