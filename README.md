@@ -57,13 +57,21 @@ Running DIORA.
 conda create -n diora-latest python=3.8
 source activate diora-latest
 
+## PYTORCH for mac
 conda install pytorch=1.10.1 torchvision=0.11.2 torchaudio=0.10.1 -c pytorch
+
+## PYTORCH for linux (w/ GPU and CUDA 10.2)
+conda install pytorch=1.10.1 torchvision=0.11.2 torchaudio=0.10.1 cudatoolkit=10.2 -c pytorch
+
 pip install nltk
 pip install h5py
 pip install tqdm
 
 # Example of running various commands.
+
 export PYTHONPATH=$(pwd)/pytorch:$PYTHONPATH
+
+## Add the --cuda flag if you have GPU access.
 
 ## Parse some text.
 python pytorch/diora/scripts/parse.py \
