@@ -13,11 +13,11 @@ word_tags = set(['CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', '
 def get_ptb_format_from_nltk_tree(tr):
     def helper(tr):
         if len(tr) == 1 and isinstance(tr[0], str):
-            return f'(DT {tr[0]})'
+            return f'({tr.label()} {tr[0]})'
 
         nodes = [helper(x) for x in tr]
 
-        return f'(S {" ".join(nodes)})'
+        return f'({tr.label()} {" ".join(nodes)})'
 
     out = helper(tr)
 
