@@ -1,6 +1,6 @@
-import os
 import collections
 import json
+import os
 import types
 
 import torch
@@ -128,6 +128,45 @@ def replace_leaves(tree, leaves):
     return newtree
 
 
+class FileWriter(object):
+    def __init__(self, output_file=None, retain_file_order=False, idx2word=None):
+        self.output_file = output_file
+        self.retain_file_order = retain_file_order
+        self.idx2word = idx2word
+        self.state = collections.defaultdict(list)
+
+        if not self.retain_file_order:
+            self.f = open(output_file, 'w')
+
+    def update(self, batch_map, trees):
+        idx2word = self.idx2word
+
+        for ii, tr in enumerate(trees):
+            example_id = batch_map['example_ids'][ii]
+            s = [idx2word[idx] for idx in batch_map['sentences'][ii].tolist()]
+            tr = replace_leaves(tr, s)
+            if options.postprocess:
+                tr = postprocess(tr, s)
+            o = collections.OrderedDict(example_id=example_id, tree=tr)
+
+            if not self.retain_file_order:
+                self.f.write(json.dumps(o) + '\n')
+
+            else:
+                file_order = batch_map['file_order'][ii]
+                self.state['file_order'].append(file_order)
+                self.state['o'].append(o)
+
+    def finish(self):
+        if not self.retain_file_order:
+            self.f.close()
+
+        else:
+            with open(self.output_file, 'w') as f:
+                for idx, o in sorted(zip(self.state['file_order'], self.state['o']), key=lambda x: x[0]):
+                    f.write(json.dumps(o) + '\n')
+
+
 def run(options):
     logger = get_logger()
 
@@ -160,12 +199,12 @@ def run(options):
 
     batches = validation_iterator.get_iterator(random_seed=options.seed)
 
-    output_path = os.path.abspath(os.path.join(options.experiment_path, 'parse.jsonl'))
+    output_file = os.path.abspath(os.path.join(options.experiment_path, 'parse.jsonl'))
 
     logger.info('Beginning.')
-    logger.info('Writing output to = {}'.format(output_path))
+    logger.info('Writing output to = {}'.format(output_file))
 
-    f = open(output_path, 'w')
+    file_writer = FileWriter(output_file=output_file, retain_file_order=options.retain_file_order, idx2word=idx2word)
 
     with torch.no_grad():
         for i, batch_map in tqdm(enumerate(batches)):
@@ -175,23 +214,23 @@ def run(options):
 
             # Skip very short sentences.
             if length <= 2:
+                if length == 2:
+                    trees = [(0, 1) for _ in range(batch_size)]
+                elif length == 1:
+                    trees = [0 for _ in range(batch_size)]
+                else:
+                    raise ValueError
+
+                file_writer.update(batch_map, trees)
                 continue
 
             _ = trainer.step(batch_map, train=False, compute_loss=False)
 
             trees = parse_predictor.parse_batch(batch_map)
 
-            for ii, tr in enumerate(trees):
-                example_id = batch_map['example_ids'][ii]
-                s = [idx2word[idx] for idx in sentences[ii].tolist()]
-                tr = replace_leaves(tr, s)
-                if options.postprocess:
-                    tr = postprocess(tr, s)
-                o = collections.OrderedDict(example_id=example_id, tree=tr)
+            file_writer.update(batch_map, trees)
 
-                f.write(json.dumps(o) + '\n')
-
-    f.close()
+    file_writer.finish()
 
 
 if __name__ == '__main__':

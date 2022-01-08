@@ -15,24 +15,31 @@ The paper is available on arXiv: https://arxiv.org/abs/1904.02142
 
 For questions/concerns/bugs please contact adrozdov at cs.umass.edu.
 
+### Recent Related Work
+
+Follow up work by us:
+
+- [Drozdov et al., 2019. Unsupervised Labeled Parsing with DIORA.](https://aclanthology.org/D19-1161/)
+- [Drozdov et al., 2020. Unsupervised Parsing with S-DIORA.](https://aclanthology.org/2020.emnlp-main.392/)
+- [Xu et al., 2021. Improved Latent Tree Induction with Distant Supervision via Span Constraints.](https://aclanthology.org/2021.emnlp-main.395/)
+
+Selection of other work with DIORA:
+
+- [Hong et al., 2020. DIORA with All-span Objective.](https://aclanthology.org/2020.coling-main.322/)
+- [Anonymous, 2021. Unsupervised Vision-Language Grammar Induction with Shared Structure Modeling (CLIORA).](https://openreview.net/forum?id=N0n_QyQ5lBF)
+
 ## Quick Start
 
-Install dependencies (using Conda as a virtual environment).
+Clone repository.
 
 ```
-conda create -n diora python=3.7
-source activate diora
-pip install -r requirements.txt
-
-## Deactivate Conda when not being used.
-source deactivate
+git clone git@github.com:iesl/diora.git
+cd diora
 ```
 
 Download the pre-trained model.
 
 ```
-mkdir -p ~/Downloads
-cd ~/Downloads
 wget http://diora-naacl-2019.s3.amazonaws.com/diora-checkpoints.zip
 unzip diora-checkpoints.zip
 ```
@@ -40,59 +47,68 @@ unzip diora-checkpoints.zip
 (Optional) Download training data: To reproduce experiments from our NAACL submission, concatenate the data from [SNLI](https://nlp.stanford.edu/projects/snli/) and [MultiNLI](https://www.nyu.edu/projects/bowman/multinli/).
 
 ```
-cat ~/data/snli_1.0/snli_1.0_train.jsonl ~/data/multinli_1.0/multinli_1.0_train.jsonl > ~/data/allnli.jsonl
+cat ./snli_1.0/snli_1.0_train.jsonl ./multinli_1.0/multinli_1.0_train.jsonl > ./data/allnli.jsonl
 ```
 
 Running DIORA.
 
 ```
-# Clone Repo
-cd ~/code && git clone git@github.com:iesl/diora.git
+# Install dependencies (using conda).
+conda create -n diora-latest python=3.8
+source activate diora-latest
 
-# Run Example
-source activate diora
-cd ~/code/diora/pytorch
-export PYTHONPATH=$(pwd):$PYTHONPATH
+## PYTORCH for mac
+conda install pytorch=1.10.1 torchvision=0.11.2 torchaudio=0.10.1 -c pytorch
 
-## Create a directory to cache elmo embeddings.
-mkdir -p ~/data/elmo
+## PYTORCH for linux (w/ GPU and CUDA 10.2)
+conda install pytorch=1.10.1 torchvision=0.11.2 torchaudio=0.10.1 cudatoolkit=10.2 -c pytorch
+
+pip install nltk
+pip install h5py
+pip install tqdm
+
+# Example of running various commands.
+
+export PYTHONPATH=$(pwd)/pytorch:$PYTHONPATH
+
+## Add the --cuda flag if you have GPU access.
 
 ## Parse some text.
-python diora/scripts/parse.py \
+python pytorch/diora/scripts/parse.py \
     --batch_size 10 \
     --data_type txt_id \
-    --elmo_cache_dir ~/data/elmo \
-    --load_model_path ~/Downloads/softmax-mlp-shared/model.pt \
-    --model_flags ~/Downloads/softmax-mlp-shared/flags.json \
-    --validation_path ./sample.txt \
+    --elmo_cache_dir ./cache \
+    --load_model_path ./diora-checkpoints/mlp-softmax/model.pt \
+    --model_flags ./diora-checkpoints/mlp-softmax/flags.json \
+    --validation_path ./pytorch/sample.txt \
     --validation_filter_length 10
 
 ## Extract vectors using latent trees,
-python diora/scripts/phrase_embed_simple.py --parse_mode latent \
+python pytorch/diora/scripts/phrase_embed_simple.py --parse_mode latent \
     --batch_size 10 \
     --data_type txt_id \
-    --elmo_cache_dir ~/data/elmo \
-    --load_model_path ~/Downloads/softmax-mlp-shared/model.pt \
-    --model_flags ~/Downloads/softmax-mlp-shared/flags.json \
-    --validation_path ./sample.txt \
+    --elmo_cache_dir ./cache \
+    --load_model_path ./diora-checkpoints/mlp-softmax/model.pt \
+    --model_flags ./diora-checkpoints/mlp-softmax/flags.json \
+    --validation_path ./pytorch/sample.txt \
     --validation_filter_length 10
 
 ## or specify the trees to use.
-python diora/scripts/phrase_embed_simple.py --parse_mode given \
+python pytorch/diora/scripts/phrase_embed_simple.py --parse_mode given \
     --batch_size 10 \
     --data_type jsonl \
-    --elmo_cache_dir ~/data/elmo \
-    --load_model_path ~/Downloads/softmax-mlp-shared/model.pt \
-    --model_flags ~/Downloads/softmax-mlp-shared/flags.json \
-    --validation_path ./sample.jsonl \
+    --elmo_cache_dir ./cache \
+    --load_model_path ./diora-checkpoints/mlp-softmax/model.pt \
+    --model_flags ./diora-checkpoints/mlp-softmax/flags.json \
+    --validation_path ./pytorch/sample.jsonl \
     --validation_filter_length 10
 
 ## Train from scratch.
-python -m torch.distributed.launch --nproc_per_node=4 diora/scripts/train.py \
+python -m torch.distributed.launch --nproc_per_node=4 pytorch/diora/scripts/train.py \
     --arch mlp-shared \
     --batch_size 32 \
     --data_type nli \
-    --elmo_cache_dir ~/data/elmo \
+    --elmo_cache_dir ./cache \
     --emb elmo \
     --hidden_dim 400 \
     --k_neg 100 \
@@ -102,9 +118,102 @@ python -m torch.distributed.launch --nproc_per_node=4 diora/scripts/train.py \
     --reconstruct_mode softmax \
     --save_after 1000 \
     --train_filter_length 20 \
-    --train_path ~/data/allnli.jsonl \
+    --train_path ./data/allnli.jsonl \
+    --max_step 300000 \
     --cuda --multigpu
 ```
+
+### Evaluation
+
+First parse the data, then run evalb from our helper script.
+
+```
+# Parse the data.
+python pytorch/diora/scripts/parse.py \
+    --retain_file_order \
+    --batch_size 10 \
+    --data_type ptb \
+    --elmo_cache_dir ./cache \
+    --load_model_path ./diora-checkpoints/mlp-softmax/model.pt \
+    --model_flags ./diora-checkpoints/mlp-softmax/flags.json \
+    --experiment_path ./log/eval-ptb \
+    --validation_path ./data/ptb/ptb-test.txt \
+    --validation_filter_length -1
+
+# (optional) Build EVALB if you haven't already.
+(cd EVALB && make)
+
+# Run evaluation.
+python pytorch/diora/scripts/evalb.py \
+    --evalb ./EVALB \
+    --evalb_config ./EVALB/diora.prm \
+    --out ./log/eval-ptb \
+    --pred ./log/eval-ptb/parse.jsonl \
+    --gold ./data/ptb/ptb-test.txt
+```
+
+Using the `mlp-softmax` checkpoint to parse the PTB test set should give the following output and results:
+
+```
+$ python pytorch/diora/scripts/evalb.py \
+    --evalb ./EVALB \
+    --evalb_config ./EVALB/diora.prm \
+    --out ./log/eval-ptb \
+    --pred ./log/eval-ptb/parse.jsonl \
+    --gold ./data/ptb/ptb-test.txt
+
+Running: ./EVALB/evalb -p ./EVALB/diora.prm ./log/eval-ptb/gold.txt ./log/eval-ptb/pred.txt > ./log/eval-ptb/evalb.out
+
+Results are ready at: ./log/eval-ptb/evalb.out
+
+==== PREVIEW OF RESULTS (./log/eval-ptb/evalb.out) ====
+
+-- All --
+Number of sentence        =   2416
+Number of Error sentence  =      0
+Number of Skip  sentence  =      0
+Number of Valid sentence  =   2416
+Bracketing Recall         =  57.78
+Bracketing Precision      =  44.28
+Bracketing FMeasure       =  50.14
+Complete match            =   0.46
+Average crossing          =   5.71
+No crossing               =  10.10
+2 or less crossing        =  29.26
+Tagging accuracy          =   9.76
+
+-- len<=40 --
+Number of sentence        =   2338
+Number of Error sentence  =      0
+Number of Skip  sentence  =      0
+Number of Valid sentence  =   2338
+Bracketing Recall         =  57.96
+Bracketing Precision      =  44.57
+Bracketing FMeasure       =  50.39
+Complete match            =   0.47
+Average crossing          =   5.39
+No crossing               =  10.44
+2 or less crossing        =  30.24
+Tagging accuracy          =   9.79
+```
+
+Notes:
+
+- Set `--validation_filter_length -1` to read all of the data.
+
+- Make sure to use `--retain_file_order` so that predictions line up with the reference file.
+
+- Set `--data_type ptb`. The PTB data should have one sentence per line be in the following format:
+
+```
+(S (NP (DT The) (VBG leading) (NNS indicators)) (VP (VBP have) (VP (VBN prompted) (NP (DT some) (NNS forecasters)))))
+```
+
+- DIORA will not attempt to parse 1 or 2 word sentences, since there is only 1 possible output.
+
+- Using the provided configuration, the EVALB evaluation will ignore part of speech and constituency labels, but does take into account unary branching.
+
+- Our EVALB helper script automatically strips punctuation.
 
 ## Multi-GPU Training
 
@@ -113,7 +222,7 @@ Using `DistributedDataParallel`:
 ```
 export CUDA_VISIBLE_DEVICES=0,1
 export NGPUS=2
-python -m torch.distributed.launch --nproc_per_node=$NGPUS diora/scripts/train.py \
+python -m torch.distributed.launch --nproc_per_node=$NGPUS pytorch/diora/scripts/train.py \
     --cuda \
     --multigpu \
     ... # other args
@@ -185,6 +294,10 @@ For examples of the expected format, please refer to the following files:
 
 `--seed` Set the random seed.
 
+`--num_workers` Number of processes to use for batch iterator.
+
+`--retain_file_order` If true, then outputs are written in same order as read from file.
+
 ## Faster ELMo Usage
 
 If you specify the `elmo_cache_dir`, then the context-insensitive ELMo vectors will be cached, making it much faster to load these vectors after the initial usage. They must be cached once per dataset (a dataset is identified as a hash of its vocabulary).
@@ -192,9 +305,9 @@ If you specify the `elmo_cache_dir`, then the context-insensitive ELMo vectors w
 Example Usage:
 
 ```
-python diora/scripts/train.py \
+python pytorch/diora/scripts/train.py \
     --emb elmo \
-    --elmo_cache_dir ~/data/elmo \
+    --elmo_cache_dir ./cache \
     ... # other args
 ```
 
@@ -208,14 +321,14 @@ Example Usage:
 
 ```
 # First, train your model.
-python diora/scripts/train.py \
-    --experiment_path ~/log/experiment-01 \
+python pytorch/diora/scripts/train.py \
+    --experiment_path ./log/experiment-01 \
     ... # other args
 
 # Later, load the model checkpoint, and specify the flags file.
-python diora/scripts/parse.py \
-    --load_model_path ~/log/experiment-01/model_periodic.pt \
-    --model_flags ~/log/experiment-01/flags.json \
+python pytorch/diora/scripts/parse.py \
+    --load_model_path ./log/experiment-01/model_periodic.pt \
+    --model_flags ./log/experiment-01/flags.json \
     ... # other args
 ```
 

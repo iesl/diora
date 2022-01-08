@@ -1,8 +1,6 @@
 from diora.data.dataloader import FixedLengthBatchSampler, SimpleDataset
 from diora.blocks.negative_sampler import choose_negative_samples
 
-from allennlp.modules.elmo import Elmo, batch_to_ids
-
 import torch
 import numpy as np
 
@@ -24,7 +22,6 @@ def get_default_config():
         shuffle=True,
         random_seed=None,
         filter_length=None,
-        workers=10,
         pin_memory=False,
         include_partial=False,
         cuda=False,
@@ -41,28 +38,59 @@ def get_default_config():
     return default_config
 
 
-class BatchIterator(object):
-
-    def __init__(self, sentences, extra={}, **kwargs):
-        self.sentences = sentences
-        self.config = config = get_config(get_default_config(), **kwargs)
-        self.extra = extra
-        self.loader = None
-
-    def chunk(self, tensor, chunks, dim=0, i=0):
+class Collate(object):
+    @staticmethod
+    def chunk(tensor, chunks, dim=0, i=0):
         if isinstance(tensor, torch.Tensor):
             return torch.chunk(tensor, chunks, dim=dim)[i]
         index = torch.chunk(torch.arange(len(tensor)), chunks, dim=dim)[i]
         return [tensor[ii] for ii in index]
 
-    def partition(self, tensor, rank, device_ids):
+    @staticmethod
+    def partition(tensor, rank, device_ids):
         if tensor is None:
             return None
         if isinstance(tensor, dict):
             for k, v in tensor.items():
-                tensor[k] = self.partition(v, rank, device_ids)
+                tensor[k] = Collate.partition(v, rank, device_ids)
             return tensor
-        return self.chunk(tensor, len(device_ids), 0, rank)
+        return Collate.chunk(tensor, len(device_ids), 0, rank)
+
+    def __init__(self, batch_iterator, rank, ngpus):
+        self.batch_iterator = batch_iterator
+        self.rank = rank
+        self.ngpus = ngpus
+
+    def collate_fn(self, batch):
+        batch_iterator = self.batch_iterator
+        rank = self.rank
+        ngpus = self.ngpus
+
+        index, sents = zip(*batch)
+        sents = torch.from_numpy(np.array(sents)).long()
+
+        batch_map = {}
+        batch_map['index'] = index
+        batch_map['sents'] = sents
+
+        for k, v in batch_iterator.extra.items():
+            batch_map[k] = [v[idx] for idx in index]
+
+        if ngpus > 1:
+            for k in batch_map.keys():
+                batch_map[k] = Collate.partition(batch_map[k], rank, range(ngpus))
+
+        return batch_map
+
+
+class BatchIterator(object):
+
+    def __init__(self, sentences, extra={}, num_workers=0, **kwargs):
+        self.sentences = sentences
+        self.num_workers = num_workers
+        self.config = config = get_config(get_default_config(), **kwargs)
+        self.extra = extra
+        self.loader = None
 
     def get_dataset_size(self):
         return len(self.sentences)
@@ -94,32 +122,17 @@ class BatchIterator(object):
         rank = config.get('rank')
         k_neg = config.get('k_neg')
         negative_sampler = config.get('negative_sampler', None)
-        workers = config.get('workers')
+        num_workers = self.num_workers
         length_to_size = config.get('length_to_size', None)
 
-        def collate_fn(batch):
-            index, sents = zip(*batch)
-            sents = torch.from_numpy(np.array(sents)).long()
-
-            batch_map = {}
-            batch_map['index'] = index
-            batch_map['sents'] = sents
-
-            for k, v in self.extra.items():
-                batch_map[k] = [v[idx] for idx in index]
-
-            if ngpus > 1:
-                for k in batch_map.keys():
-                    batch_map[k] = self.partition(batch_map[k], rank, range(ngpus))
-
-            return batch_map
+        collate_fn = Collate(self, rank, ngpus).collate_fn
 
         if self.loader is None:
             rng = np.random.RandomState(seed=random_seed)
             dataset = SimpleDataset(self.sentences)
             sampler = FixedLengthBatchSampler(dataset, batch_size=batch_size, rng=rng,
                 maxlen=filter_length, include_partial=include_partial, length_to_size=length_to_size)
-            loader = torch.utils.data.DataLoader(dataset, shuffle=(sampler is None), num_workers=workers, pin_memory=pin_memory,batch_sampler=sampler, collate_fn=collate_fn)
+            loader = torch.utils.data.DataLoader(dataset, shuffle=(sampler is None), num_workers=num_workers, pin_memory=pin_memory, batch_sampler=sampler, collate_fn=collate_fn)
             self.loader = loader
 
         def myiterator():

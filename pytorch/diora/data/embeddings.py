@@ -5,7 +5,8 @@ from collections import OrderedDict
 from diora.logging.configuration import get_logger
 
 import numpy as np
-from allennlp.commands.elmo import ElmoEmbedder
+import torch
+from diora.external.standalone_elmo import batch_to_ids, ElmoCharacterEncoder, remove_sentence_boundaries
 from tqdm import tqdm
 
 
@@ -19,9 +20,98 @@ UNK_TOKEN = "_"
 EXISTING_VOCAB_TOKEN = "unused-token-a7g39i"
 
 
+def maybe_download(remote_url, cache_dir):
+    path = os.path.join(cache_dir, os.path.basename(remote_url))
+    if not os.path.exists(path):
+        os.system(f'curl {remote_url} -o {path} -L')
+    return path
+
+
+class ElmoEmbedder(object):
+    def __init__(self, options_file, weights_file, cache_dir, cuda=False):
+        logger = get_logger()
+        logger.info('Initialize ELMo Model.')
+
+        self.char_embedder = ElmoCharacterEncoder(
+            options_file=maybe_download(options_file, cache_dir=cache_dir),
+            weight_file=maybe_download(weights_file, cache_dir=cache_dir),
+            requires_grad=False)
+
+        if cuda:
+            self.char_embedder.cuda()
+
+        self.cuda = cuda
+        self.cache_dir = cache_dir
+
+    def __call__(self, word2idx):
+        """
+        1. Sort tokens alphabetically by `word` from `word2idx`.
+        2. Embed the newly sorted tokens.
+        3. Re-order embeddings according to `idx` from `word2idx`.
+
+        Will skip step (2) if there is a previously cached version of embeddings.
+
+        """
+
+        logger = get_logger()
+
+        def sort_by_tok(item):
+            tok, idx = item
+            return tok
+
+        def sort_by_idx(item):
+            tok, idx = item
+            return idx
+
+        size = 512
+        batch_size = 1024
+
+        # 1. Sort tokens alphabetically by `word` from `word2idx`.
+        tokens = [tok for tok, idx in sorted(word2idx.items(), key=sort_by_tok)]
+
+        # 2. Embed the newly sorted tokens.
+        vocab_identifier = hash_tokens(tokens)
+        embeddings_file = os.path.join(self.cache_dir, f'elmo_{vocab_identifier}.npy')
+        shape = (len(tokens), size)
+        if os.path.exists(embeddings_file):
+            logger.info('Loading cached elmo vectors: {}'.format(embeddings_file))
+            embeddings = np.load(embeddings_file)
+            assert embeddings.shape == shape
+
+        else:
+            logger.info('Begin caching vectors. shape = {}, cuda = {}'.format(shape, self.cuda))
+
+            embeddings = np.zeros(shape, dtype=np.float32)
+
+            for start in tqdm(range(0, len(tokens), batch_size), desc='embed'):
+                end = min(start + batch_size, len(tokens))
+                batch = tokens[start:end]
+                batch_ids = batch_to_ids([[x] for x in batch])
+                if self.cuda:
+                    batch_ids = batch_ids.cuda()
+                output = self.char_embedder(batch_ids)
+                vec = remove_sentence_boundaries(output['token_embedding'], output['mask'])[0].squeeze(1)
+
+                embeddings[start:end] = vec.cpu().numpy()
+
+            # Cache embeddings.
+            logger.info('Saving cached elmo vectors: {}'.format(embeddings_file))
+            np.save(embeddings_file, embeddings)
+
+        # 3. Re-order embeddings according to `idx` from `word2idx`.
+        sorted_word2idx = {tok: idx for idx, tok in enumerate(tokens)}
+        index = [sorted_word2idx[tok] for tok, idx in sorted(word2idx.items(), key=sort_by_idx)]
+        old_embeddings = embeddings
+        embeddings = embeddings[index]
+
+        # Duplicate embeddings. This is meant to mirror behavior in elmo, which has separate embeddings
+        # for forward and backward LSTMs.
+        embeddings = np.concatenate([embeddings, embeddings], 1)
+
+        return embeddings
+
+
 class EmbeddingsReader(object):
-    def context_insensitive_elmo(self, *args, **kwargs):
-        return context_insensitive_elmo(*args, **kwargs)
 
     def read_glove(self, *args, **kwargs):
         return read_glove(*args, **kwargs)
@@ -31,10 +121,14 @@ class EmbeddingsReader(object):
         return embeddings, word2idx
 
     def get_emb_elmo(self, options, embeddings_path, word2idx):
-        options_path = options.elmo_options_path
-        weights_path = options.elmo_weights_path
-        embeddings = self.context_insensitive_elmo(weights_path=weights_path, options_path=options_path,
-            word2idx=word2idx, cuda=options.cuda, cache_dir=options.elmo_cache_dir)
+        elmo_encoder = ElmoEmbedder(
+            options_file=options.elmo_options_path,
+            weights_file=options.elmo_weights_path,
+            cache_dir=options.elmo_cache_dir,
+            cuda=options.cuda)
+        embeddings = elmo_encoder(word2idx)
+        # embeddings = self.context_insensitive_elmo(weights_path=weights_path, options_path=options_path,
+            # word2idx=word2idx, cuda=options.cuda, cache_dir=options.elmo_cache_dir)
         return embeddings, word2idx
 
     def get_emb_both(self, options, embeddings_path, word2idx):
@@ -140,69 +234,26 @@ def read_glove(filename, word2idx):
 
 
 def validate_word2idx(word2idx):
-    vocab = [w for w, i in sorted(word2idx.items(), key=lambda x: x[1])]
-    for i, w in enumerate(vocab):
-        assert word2idx[w] == i
+    """
+    Verify that all `idx` are accounted for.
+    """
+    idx_set = set(word2idx.values())
+    for i in range(len(word2idx)):
+        assert i in word2idx
 
 
-def hash_vocab(vocab):
+def validate_word_order(tokens):
+    """
+    Verify tokens are in sorted order.
+    """
+    for w0, w1 in zip(tokens, sorted(tokens)):
+        assert w0 == w1
+
+
+def hash_tokens(tokens):
+    validate_word_order(tokens)
+
     m = hashlib.sha256()
-    for w in sorted(vocab):
+    for w in tokens:
         m.update(str.encode(w))
     return m.hexdigest()
-
-
-def save_elmo_cache(path, vectors):
-    np.save(path, vectors)
-
-
-def load_elmo_cache(path):
-    return np.load(path)
-
-
-def context_insensitive_elmo(weights_path, options_path, word2idx, cuda=False, cache_dir=None):
-    logger = get_logger()
-
-    vocab = [w for w, i in sorted(word2idx.items(), key=lambda x: x[1])]
-
-    validate_word2idx(word2idx)
-
-    if cache_dir is not None:
-        key = hash_vocab(vocab)
-        cache_path = os.path.join(cache_dir, 'elmo_{}.npy'.format(key))
-
-        if os.path.exists(cache_path):
-            logger.info('Loading cached elmo vectors: {}'.format(cache_path))
-            return load_elmo_cache(cache_path)
-
-    if cuda:
-        device = 0
-    else:
-        device = -1
-
-    batch_size = 256
-    nbatches = len(vocab) // batch_size + 1
-
-    logger.info('Begin caching vectors. nbatches={} device={}'.format(nbatches, device))
-    logger.info('Initialize ELMo Model.')
-
-    # TODO: Does not support padding.
-    elmo = ElmoEmbedder(options_file=options_path, weight_file=weights_path, cuda_device=device)
-    vec_lst = []
-    for i in tqdm(range(nbatches), desc='elmo'):
-        start = i * batch_size
-        batch = vocab[start:start+batch_size]
-        if len(batch) == 0:
-            continue
-        vec = elmo.embed_sentence(batch)
-        vec_lst.append(vec)
-
-    vectors = np.concatenate([x[0] for x in vec_lst], axis=0)
-
-    if cache_dir is not None:
-        logger.info('Saving cached elmo vectors: {}'.format(cache_path))
-        save_elmo_cache(cache_path, vectors)
-
-    return vectors
-
-

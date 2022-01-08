@@ -7,8 +7,11 @@ Each reader should return:
 
 """
 
+import collections
 import os
 import json
+
+import nltk
 
 from tqdm import tqdm
 
@@ -118,12 +121,16 @@ class BaseTextReader(object):
 
     def read_sentences(self, filename):
         sentences = []
-        extra = dict()
+        extra = collections.defaultdict(list)
 
         example_ids = []
 
         with open(filename) as f:
             for line in tqdm(f, desc='read'):
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+
                 for s in self.read_line(line):
                     if self.filter_length > 0 and len(s) > self.filter_length:
                         continue
@@ -134,10 +141,11 @@ class BaseTextReader(object):
                         example_id = len(sentences)
                     if self.lowercase:
                         s = [w.lower() for w in s]
-                    example_ids.append(example_id)
-                    sentences.append(s)
 
-        extra['example_ids'] = example_ids
+                    sentences.append(s)
+                    extra['example_ids'].append(example_id)
+                    extra['file_order'].append(len(extra['file_order'])) # Preserves ordering that sentences were read in.
+                    # extra['original_input'].append(line)
 
         return {
             "sentences": sentences,
@@ -155,6 +163,15 @@ class PlainTextReader(BaseTextReader):
 
     def read_line(self, line):
         s = line.strip().split(self.delim)
+        if self.lowercase:
+            s = [w.lower() for w in s]
+        yield s
+
+
+class PTBReader(BaseTextReader):
+    def read_line(self, line):
+        nltk_tree = nltk.Tree.fromstring(line.strip())
+        s = nltk_tree.leaves()
         if self.lowercase:
             s = [w.lower() for w in s]
         yield s

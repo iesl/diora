@@ -5,7 +5,7 @@ import numpy as np
 
 from tqdm import tqdm
 
-from diora.data.reading import NLIReader, PlainTextReader, ConllReader, JSONLReader
+from diora.data.reading import NLIReader, PlainTextReader, ConllReader, JSONLReader, PTBReader
 from diora.data.batch_iterator import BatchIterator
 from diora.data.embeddings import EmbeddingsReader, UNK_TOKEN
 from diora.data.preprocessing import indexify, build_text_vocab
@@ -113,6 +113,8 @@ class ReconstructDataset(object):
             reader = NLIReader.build(lowercase=options.lowercase, filter_length=filter_length)
         elif data_type == 'conll_jsonl':
             reader = ConllReader(lowercase=options.lowercase, filter_length=filter_length)
+        elif data_type == 'ptb':
+            reader = PTBReader(lowercase=options.lowercase, filter_length=filter_length)
         elif data_type == 'txt':
             reader = PlainTextReader(lowercase=options.lowercase, filter_length=filter_length, include_id=False)
         elif data_type == 'txt_id':
@@ -144,6 +146,7 @@ def make_batch_iterator(options, dset, shuffle=True, include_partial=False, filt
     ngpus = 1
     if cuda and multigpu:
         ngpus = torch.cuda.device_count()
+    num_workers = options.num_workers
 
     vocab_size = len(word2idx)
 
@@ -154,10 +157,19 @@ def make_batch_iterator(options, dset, shuffle=True, include_partial=False, filt
     vocab_lst = [w for w, _ in sorted(word2idx.items(), key=lambda x: x[1])]
 
     batch_iterator = BatchIterator(
-        sentences, extra=extra, shuffle=shuffle, include_partial=include_partial,
-        filter_length=filter_length, batch_size=batch_size, rank=options.local_rank,
-        cuda=cuda, ngpus=ngpus, negative_sampler=negative_sampler,
-        vocab=vocab_lst, k_neg=options.k_neg,
+        sentences,
+        extra=extra,
+        shuffle=shuffle,
+        include_partial=include_partial,
+        filter_length=filter_length,
+        batch_size=batch_size,
+        cuda=cuda,
+        rank=options.local_rank,
+        ngpus=ngpus,
+        num_workers=num_workers,
+        negative_sampler=negative_sampler,
+        k_neg=options.k_neg,
+        vocab=vocab_lst,
         options_path=options.elmo_options_path,
         weights_path=options.elmo_weights_path,
         length_to_size=length_to_size,
