@@ -11,12 +11,20 @@ word_tags = set(['CC', 'CD', 'DT', 'EX', 'FW', 'IN', 'JJ', 'JJR', 'JJS', 'LS', '
 
 
 def get_ptb_format_from_nltk_tree(tr):
-    if len(tr) == 1 and isinstance(tr[0], str):
-        return f'({tr.label()} {tr[0]})'
+    def helper(tr):
+        if len(tr) == 1 and isinstance(tr[0], str):
+            return f'(DT {tr[0]})'
 
-    nodes = [get_ptb_format_from_nltk_tree(x) for x in tr]
+        nodes = [helper(x) for x in tr]
 
-    return f'({tr.label()} {" ".join(nodes)})'
+        return f'(S {" ".join(nodes)})'
+
+    out = helper(tr)
+
+    if out.startswith('(DT'):
+        out = f'(S {out})'
+
+    return out
 
 
 def get_ptb_format_from_diora_tree(parse, tokens, return_string=False, batched=False):
@@ -133,7 +141,11 @@ def main(args):
             f.write(parse + '\n')
 
     # Run EVALB.
+    evalb_exe = os.path.join(args.evalb, 'evalb')
     evalb_out_file = os.path.join(args.out, 'evalb.out')
+
+    assert os.path.exists(evalb_exe), "Did not detect evalb executable. Try `(cd EVALB && make)`."
+    assert os.path.exists(args.evalb_config)
 
     evalb_command = '{evalb} -p {evalb_config} {gold} {pred} > {out}'.format(
         evalb=os.path.join(args.evalb, 'evalb'),
