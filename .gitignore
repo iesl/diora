@@ -1,4 +1,11 @@
+# python
 *.pyc
+
+# mac
 .DS_Store
-.pytest_cache
+
+# diora
+cache
+data
+diora-checkpoints
 log

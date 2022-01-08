@@ -186,6 +186,7 @@ def argument_parser():
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--multigpu', action='store_true')
     parser.add_argument("--local_rank", default=None, type=int) # for distributed-data-parallel
+    parser.add_argument("--num_workers", default=0, type=int) # for batch iterator
 
     # Logging.
     parser.add_argument('--default_experiment_directory', default=os.path.join(package_path(), '..', 'log'), type=str)

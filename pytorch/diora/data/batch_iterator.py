@@ -22,7 +22,6 @@ def get_default_config():
         shuffle=True,
         random_seed=None,
         filter_length=None,
-        workers=10,
         pin_memory=False,
         include_partial=False,
         cuda=False,
@@ -86,8 +85,9 @@ class Collate(object):
 
 class BatchIterator(object):
 
-    def __init__(self, sentences, extra={}, **kwargs):
+    def __init__(self, sentences, extra={}, num_workers=0, **kwargs):
         self.sentences = sentences
+        self.num_workers = num_workers
         self.config = config = get_config(get_default_config(), **kwargs)
         self.extra = extra
         self.loader = None
@@ -122,7 +122,7 @@ class BatchIterator(object):
         rank = config.get('rank')
         k_neg = config.get('k_neg')
         negative_sampler = config.get('negative_sampler', None)
-        workers = config.get('workers')
+        num_workers = self.num_workers
         length_to_size = config.get('length_to_size', None)
 
         collate_fn = Collate(self, rank, ngpus).collate_fn
@@ -132,7 +132,7 @@ class BatchIterator(object):
             dataset = SimpleDataset(self.sentences)
             sampler = FixedLengthBatchSampler(dataset, batch_size=batch_size, rng=rng,
                 maxlen=filter_length, include_partial=include_partial, length_to_size=length_to_size)
-            loader = torch.utils.data.DataLoader(dataset, shuffle=(sampler is None), num_workers=workers, pin_memory=pin_memory, batch_sampler=sampler, collate_fn=collate_fn)
+            loader = torch.utils.data.DataLoader(dataset, shuffle=(sampler is None), num_workers=num_workers, pin_memory=pin_memory, batch_sampler=sampler, collate_fn=collate_fn)
             self.loader = loader
 
         def myiterator():

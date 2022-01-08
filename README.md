@@ -17,22 +17,16 @@ For questions/concerns/bugs please contact adrozdov at cs.umass.edu.
 
 ## Quick Start
 
-Install dependencies (using Conda as a virtual environment).
+Clone repository.
 
 ```
-conda create -n diora python=3.7
-source activate diora
-pip install -r requirements.txt
-
-## Deactivate Conda when not being used.
-source deactivate
+git clone git@github.com:iesl/diora.git
+cd diora
 ```
 
 Download the pre-trained model.
 
 ```
-mkdir -p ~/Downloads
-cd ~/Downloads
 wget http://diora-naacl-2019.s3.amazonaws.com/diora-checkpoints.zip
 unzip diora-checkpoints.zip
 ```
@@ -40,59 +34,59 @@ unzip diora-checkpoints.zip
 (Optional) Download training data: To reproduce experiments from our NAACL submission, concatenate the data from [SNLI](https://nlp.stanford.edu/projects/snli/) and [MultiNLI](https://www.nyu.edu/projects/bowman/multinli/).
 
 ```
-cat ~/data/snli_1.0/snli_1.0_train.jsonl ~/data/multinli_1.0/multinli_1.0_train.jsonl > ~/data/allnli.jsonl
+cat ./snli_1.0/snli_1.0_train.jsonl ./multinli_1.0/multinli_1.0_train.jsonl > ./data/allnli.jsonl
 ```
 
 Running DIORA.
 
 ```
-# Clone Repo
-cd ~/code && git clone git@github.com:iesl/diora.git
+# Install dependencies (using conda).
+conda create -n diora-latest python=3.8
+source activate diora-latest
 
-# Run Example
-source activate diora
-cd ~/code/diora/pytorch
-export PYTHONPATH=$(pwd):$PYTHONPATH
+conda install pytorch=1.10.1 torchvision=0.11.2 torchaudio=0.10.1 -c pytorch
+pip install h5py
+pip install tqdm
 
-## Create a directory to cache elmo embeddings.
-mkdir -p ~/data/elmo
+# Example of running various commands.
+export PYTHONPATH=$(pwd)/pytorch:$PYTHONPATH
 
 ## Parse some text.
-python diora/scripts/parse.py \
+python pytorch/diora/scripts/parse.py \
     --batch_size 10 \
     --data_type txt_id \
-    --elmo_cache_dir ~/data/elmo \
-    --load_model_path ~/Downloads/softmax-mlp-shared/model.pt \
-    --model_flags ~/Downloads/softmax-mlp-shared/flags.json \
-    --validation_path ./sample.txt \
+    --elmo_cache_dir ./cache \
+    --load_model_path ./diora-checkpoints/mlp-softmax/model.pt \
+    --model_flags ./diora-checkpoints/mlp-softmax/flags.json \
+    --validation_path ./pytorch/sample.txt \
     --validation_filter_length 10
 
 ## Extract vectors using latent trees,
-python diora/scripts/phrase_embed_simple.py --parse_mode latent \
+python pytorch/diora/scripts/phrase_embed_simple.py --parse_mode latent \
     --batch_size 10 \
     --data_type txt_id \
-    --elmo_cache_dir ~/data/elmo \
-    --load_model_path ~/Downloads/softmax-mlp-shared/model.pt \
-    --model_flags ~/Downloads/softmax-mlp-shared/flags.json \
-    --validation_path ./sample.txt \
+    --elmo_cache_dir ./cache \
+    --load_model_path ./diora-checkpoints/mlp-softmax/model.pt \
+    --model_flags ./diora-checkpoints/mlp-softmax/flags.json \
+    --validation_path ./pytorch/sample.txt \
     --validation_filter_length 10
 
 ## or specify the trees to use.
-python diora/scripts/phrase_embed_simple.py --parse_mode given \
+python pytorch/diora/scripts/phrase_embed_simple.py --parse_mode given \
     --batch_size 10 \
     --data_type jsonl \
-    --elmo_cache_dir ~/data/elmo \
-    --load_model_path ~/Downloads/softmax-mlp-shared/model.pt \
-    --model_flags ~/Downloads/softmax-mlp-shared/flags.json \
-    --validation_path ./sample.jsonl \
+    --elmo_cache_dir ./cache \
+    --load_model_path ./diora-checkpoints/mlp-softmax/model.pt \
+    --model_flags ./diora-checkpoints/mlp-softmax/flags.json \
+    --validation_path ./pytorch/sample.jsonl \
     --validation_filter_length 10
 
 ## Train from scratch.
-python -m torch.distributed.launch --nproc_per_node=4 diora/scripts/train.py \
+python -m torch.distributed.launch --nproc_per_node=4 pytorch/diora/scripts/train.py \
     --arch mlp-shared \
     --batch_size 32 \
     --data_type nli \
-    --elmo_cache_dir ~/data/elmo \
+    --elmo_cache_dir ./cache \
     --emb elmo \
     --hidden_dim 400 \
     --k_neg 100 \
@@ -102,7 +96,8 @@ python -m torch.distributed.launch --nproc_per_node=4 diora/scripts/train.py \
     --reconstruct_mode softmax \
     --save_after 1000 \
     --train_filter_length 20 \
-    --train_path ~/data/allnli.jsonl \
+    --train_path ./data/allnli.jsonl \
+    --max_step 300000 \
     --cuda --multigpu
 ```
 
@@ -113,7 +108,7 @@ Using `DistributedDataParallel`:
 ```
 export CUDA_VISIBLE_DEVICES=0,1
 export NGPUS=2
-python -m torch.distributed.launch --nproc_per_node=$NGPUS diora/scripts/train.py \
+python -m torch.distributed.launch --nproc_per_node=$NGPUS pytorch/diora/scripts/train.py \
     --cuda \
     --multigpu \
     ... # other args
@@ -184,6 +179,7 @@ For examples of the expected format, please refer to the following files:
 *Other*
 
 `--seed` Set the random seed.
+`--num_workers` Number of processes to use for batch iterator.
 
 ## Faster ELMo Usage
 
@@ -192,9 +188,9 @@ If you specify the `elmo_cache_dir`, then the context-insensitive ELMo vectors w
 Example Usage:
 
 ```
-python diora/scripts/train.py \
+python pytorch/diora/scripts/train.py \
     --emb elmo \
-    --elmo_cache_dir ~/data/elmo \
+    --elmo_cache_dir ./cache \
     ... # other args
 ```
 
@@ -208,14 +204,14 @@ Example Usage:
 
 ```
 # First, train your model.
-python diora/scripts/train.py \
-    --experiment_path ~/log/experiment-01 \
+python pytorch/diora/scripts/train.py \
+    --experiment_path ./log/experiment-01 \
     ... # other args
 
 # Later, load the model checkpoint, and specify the flags file.
-python diora/scripts/parse.py \
-    --load_model_path ~/log/experiment-01/model_periodic.pt \
-    --model_flags ~/log/experiment-01/flags.json \
+python pytorch/diora/scripts/parse.py \
+    --load_model_path ./log/experiment-01/model_periodic.pt \
+    --model_flags ./log/experiment-01/flags.json \
     ... # other args
 ```
 
