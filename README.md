@@ -15,6 +15,19 @@ The paper is available on arXiv: https://arxiv.org/abs/1904.02142
 
 For questions/concerns/bugs please contact adrozdov at cs.umass.edu.
 
+### Recent Related Work
+
+Follow up work by us:
+
+- [Drozdov et al., 2019. Unsupervised Labeled Parsing with DIORA.](https://aclanthology.org/D19-1161/)
+- [Drozdov et al., 2020. Unsupervised Parsing with S-DIORA.](https://aclanthology.org/2020.emnlp-main.392/)
+- [Xu et al., 2021. Improved Latent Tree Induction with Distant Supervision via Span Constraints.](https://aclanthology.org/2021.emnlp-main.395/)
+
+Selection of other work with DIORA:
+
+- [Hong et al., 2020. DIORA with All-span Objective.](https://aclanthology.org/2020.coling-main.322/)
+- [Anonymous, 2021. Unsupervised Vision-Language Grammar Induction with Shared Structure Modeling (CLIORA).](https://openreview.net/forum?id=N0n_QyQ5lBF)
+
 ## Quick Start
 
 Clone repository.
