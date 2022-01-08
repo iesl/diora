@@ -58,6 +58,7 @@ conda create -n diora-latest python=3.8
 source activate diora-latest
 
 conda install pytorch=1.10.1 torchvision=0.11.2 torchaudio=0.10.1 -c pytorch
+pip install nltk
 pip install h5py
 pip install tqdm
 
@@ -113,6 +114,48 @@ python -m torch.distributed.launch --nproc_per_node=4 pytorch/diora/scripts/trai
     --max_step 300000 \
     --cuda --multigpu
 ```
+
+### Evaluation
+
+First parse the data, then run evalb from our helper script.
+
+```
+# Parse the data.
+python pytorch/diora/scripts/parse.py \
+    --retain_file_order \
+    --batch_size 10 \
+    --data_type ptb \
+    --elmo_cache_dir ./cache \
+    --load_model_path ./diora-checkpoints/mlp-softmax/model.pt \
+    --model_flags ./diora-checkpoints/mlp-softmax/flags.json \
+    --experiment_path ./log/eval-ptb \
+    --validation_path ./data/ptb/ptb-test.txt \
+    --validation_filter_length -1
+
+# (optional) Build EVALB if you haven't already.
+(cd EVALB && make)
+
+# Run evaluation.
+python pytorch/diora/scripts/evalb.py # TODO
+```
+
+Notes:
+
+- Set `--validation_filter_length -1` to read all of the data.
+
+- Make sure to use `--retain_file_order` so that predictions line up with the reference file.
+
+- Set `--data_type ptb`. The PTB data should have one sentence per line be in the following format:
+
+```
+(S (NP (DT The) (VBG leading) (NNS indicators)) (VP (VBP have) (VP (VBN prompted) (NP (DT some) (NNS forecasters)))))
+```
+
+- DIORA will not attempt to parse 1 or 2 word sentences, since there is only 1 possible output.
+
+- Using the provided configuration, the EVALB evaluation will ignore part of speech and constituency labels, but does take into account unary branching.
+
+- Our EVALB helper script automatically strips punctuation.
 
 ## Multi-GPU Training
 
@@ -192,7 +235,10 @@ For examples of the expected format, please refer to the following files:
 *Other*
 
 `--seed` Set the random seed.
+
 `--num_workers` Number of processes to use for batch iterator.
+
+`--retain_file_order` If true, then outputs are written in same order as read from file.
 
 ## Faster ELMo Usage
 

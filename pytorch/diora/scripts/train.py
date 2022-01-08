@@ -19,7 +19,7 @@ from diora.utils.checkpoint import save_experiment
 from diora.net.experiment_logger import ExperimentLogger
 
 
-data_types_choices = ('nli', 'conll_jsonl', 'txt', 'txt_id', 'synthetic', 'jsonl')
+data_types_choices = ('nli', 'conll_jsonl', 'txt', 'txt_id', 'synthetic', 'jsonl', 'ptb')
 
 
 def count_params(net):
@@ -268,6 +268,7 @@ def argument_parser():
 
     # Parsing.
     parser.add_argument('--postprocess', action='store_true')
+    parser.add_argument('--retain_file_order', action='store_true') # If true, then outputs are written in same order as read from file.
 
     # Optimization.
     parser.add_argument('--lr', default=4e-3, type=float)
