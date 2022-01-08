@@ -136,7 +136,12 @@ python pytorch/diora/scripts/parse.py \
 (cd EVALB && make)
 
 # Run evaluation.
-python pytorch/diora/scripts/evalb.py # TODO
+python pytorch/diora/scripts/evalb.py \
+    --evalb ./EVALB \
+    --evalb_config ./EVALB/diora.prm \
+    --out ./log/eval-ptb \
+    --pred ./log/eval-ptb/parse.jsonl \
+    --gold ./data/ptb/ptb-test.txt
 ```
 
 Notes:

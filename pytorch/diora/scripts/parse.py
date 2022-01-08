@@ -214,6 +214,14 @@ def run(options):
 
             # Skip very short sentences.
             if length <= 2:
+                if length == 2:
+                    trees = [(0, 1) for _ in range(batch_size)]
+                elif length == 1:
+                    trees = [0 for _ in range(batch_size)]
+                else:
+                    raise ValueError
+
+                file_writer.update(batch_map, trees)
                 continue
 
             _ = trainer.step(batch_map, train=False, compute_loss=False)
